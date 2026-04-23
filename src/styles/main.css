@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+:root { --bg-dark: #020617; --panel-dark: #0f172a; }
+body { background-color: var(--bg-dark); color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; height: 100%; }
+
+.game-view { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+.hand-scroll-area { 
+    display: flex; 
+    gap: 12px; 
+    padding: 15px 20px; 
+    overflow-x: auto; 
+    scrollbar-width: none; 
+    width: 100%; 
+    height: 200px; 
+    align-items: center;
+}
+.hand-scroll-area::-webkit-scrollbar { display: none; }
+
+.playing-card { 
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    cursor: pointer; 
+    flex-shrink: 0; 
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6); 
+    height: 175px; 
+    width: 125px; 
+    position: relative; 
+    border: 2px solid #334155; 
+    border-radius: 1rem; 
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.warrior-card { border-color: #ef4444; background: linear-gradient(135deg, #450a0a 0%, #0f172a 100%); }
+.archer-card { border-color: #10b981; background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%); }
+.mage-card { border-color: #8b5cf6; background: linear-gradient(135deg, #2e1065 0%, #0f172a 100%); }
+.paladin-card { border-color: #fbbf24; background: linear-gradient(135deg, #78350f 0%, #0f172a 100%); }
+.loot-card { border-color: #f59e0b; background: linear-gradient(135deg, #451a03 0%, #0f172a 100%) !important; }
+.fatigue-card { border-color: #94a3b8 !important; background: #1e293b !important; color: #94a3b8; filter: saturate(0.5); }
+.wound-card { border-color: #dc2626 !important; background: repeating-linear-gradient(45deg, #450a0a, #450a0a 10px, #2a0505 10px, #2a0505 20px) !important; animation: shake 0.5s infinite; }
+
+@keyframes shake { 0% { transform: translate(0,0); } 25% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, 0px); } 75% { transform: translate(1px, -1px); } 100% { transform: translate(0,0); } }
+
+.stat-pill { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 999px; display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+
+.card-damage-display {
+    font-size: 3.5rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+.player-token { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
+.active-token { transform: scale(1.15) translateY(-2px); box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); z-index: 10; border-color: #3b82f6 !important; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@keyframes errorFloat {
+    0% { opacity: 0; transform: translate(-50%, 20px); }
+    10% { opacity: 1; transform: translate(-50%, 0); }
+    90% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+.error-toast {
+    animation: errorFloat 1.5s forwards;
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    z-index: 500;
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+
+.lobby-view { background-color: var(--bg-dark); display: flex; flex-direction: column; }
