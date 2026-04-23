@@ -2,8 +2,8 @@
 // This file fetches game data from a published Google Sheet and converts it to the game format
 
 // IMPORTANT: Set your Google Sheet ID and Sheet names here
-const GOOGLE_SHEET_ID = 'YOUR_SHEET_ID_HERE'; // Replace with your Google Sheet ID
-const USE_GOOGLE_SHEETS = false; // Set to true to use Google Sheets instead of local data
+const GOOGLE_SHEET_ID = '1lXQaaeSVjT9Ex4QQjNosnMnkfAMWqMy2aRy4l3aVs6Q'; // Replace with your Google Sheet ID
+const USE_GOOGLE_SHEETS = true; // Set to true to use Google Sheets instead of local data
 
 // Extract data from Google Sheet CSV export URL
 async function loadFromGoogleSheets() {
@@ -15,18 +15,21 @@ async function loadFromGoogleSheets() {
     try {
         // Construct the CSV export URL for each sheet
         const classesUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Classes`;
+        const cardsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Cards`;
         const lootUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Loot`;
         const minionsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Minions`;
 
         // Fetch all sheets
-        const [classesData, lootData, minionsData] = await Promise.all([
+        const [classesData, cardsData, lootData, minionsData] = await Promise.all([
             fetch(classesUrl).then(r => r.text()),
+            fetch(cardsUrl).then(r => r.text()),
             fetch(lootUrl).then(r => r.text()),
             fetch(minionsUrl).then(r => r.text())
         ]);
 
         // Parse and convert to game format
         parseClassesFromCSV(classesData);
+        parseCardsFromCSV(cardsData);
         parseLootFromCSV(lootData);
         parseMinionsFromCSV(minionsData);
 
@@ -54,7 +57,7 @@ function parseCSV(csv) {
     return rows;
 }
 
-// Parse Classes sheet
+// Parse Classes sheet (class metadata only)
 function parseClassesFromCSV(csv) {
     const rows = parseCSV(csv);
     const newClasses = {};
@@ -63,37 +66,47 @@ function parseClassesFromCSV(csv) {
         if (!row.className) return;
 
         const className = row.className.toUpperCase();
-        if (!newClasses[className]) {
-            newClasses[className] = {
-                name: row.name || className,
-                icon: row.icon || '⚔️',
-                baseRange: parseInt(row.baseRange) || 1,
-                vitality: parseInt(row.vitality) || 2,
-                flavor: row.flavor || '',
-                deck: []
-            };
-        }
-
-        // Add cards to deck if cardName is present
-        if (row.cardName) {
-            const cardCount = parseInt(row.cardCount) || 1;
-            for (let i = 0; i < cardCount; i++) {
-                const card = {
-                    name: row.cardName,
-                    type: row.cardType || 'attack',
-                    desc: row.cardDesc || '',
-                    damage: row.cardDamage ? parseInt(row.cardDamage) : 0,
-                    fatigue: row.cardFatigue ? parseInt(row.cardFatigue) : 0,
-                    ap: row.cardAP ? parseInt(row.cardAP) : 0,
-                    count: row.cardDrawCount ? parseInt(row.cardDrawCount) : 0
-                };
-                newClasses[className].deck.push(card);
-            }
-        }
+        newClasses[className] = {
+            name: row.name || className,
+            icon: row.icon || '⚔️',
+            baseRange: parseInt(row.baseRange) || 1,
+            vitality: parseInt(row.vitality) || 2,
+            flavor: row.flavor || '',
+            deck: []
+        };
     });
 
     // Update global CLASSES
     Object.assign(CLASSES, newClasses);
+}
+
+// Parse Cards sheet (separate from classes)
+function parseCardsFromCSV(csv) {
+    const rows = parseCSV(csv);
+
+    rows.forEach(row => {
+        if (!row.className || !row.cardName) return;
+
+        const className = row.className.toUpperCase();
+        if (!CLASSES[className]) {
+            console.warn(`Class "${className}" not found when loading card "${row.cardName}". Make sure the class is defined in the Classes sheet.`);
+            return;
+        }
+
+        const cardCount = parseInt(row.cardCount) || 1;
+        for (let i = 0; i < cardCount; i++) {
+            const card = {
+                name: row.cardName,
+                type: row.cardType || 'attack',
+                desc: row.cardDesc || '',
+                damage: row.cardDamage ? parseInt(row.cardDamage) : 0,
+                fatigue: row.cardFatigue ? parseInt(row.cardFatigue) : 0,
+                ap: row.cardAP ? parseInt(row.cardAP) : 0,
+                count: row.cardDrawCount ? parseInt(row.cardDrawCount) : 0
+            };
+            CLASSES[className].deck.push(card);
+        }
+    });
 }
 
 // Parse Loot sheet
