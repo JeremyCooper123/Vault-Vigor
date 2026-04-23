@@ -2,8 +2,8 @@
 // This file fetches game data from a published Google Sheet and converts it to the game format
 
 // IMPORTANT: Set your Google Sheet ID and Sheet names here
-const GOOGLE_SHEET_ID = 'YOUR_SHEET_ID_HERE'; // Replace with your Google Sheet ID
-const USE_GOOGLE_SHEETS = false; // Set to true to use Google Sheets instead of local data
+const GOOGLE_SHEET_ID = '1lXQaaeSVjT9Ex4QQjNosnMnkfAMWqMy2aRy4l3aVs6Q' ; // Replace with your Google Sheet ID
+const USE_GOOGLE_SHEETS = true; // Set to true to use Google Sheets instead of local data
 
 // Extract data from Google Sheet CSV export URL
 async function loadFromGoogleSheets() {
