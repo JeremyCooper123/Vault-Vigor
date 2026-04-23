@@ -2,10 +2,10 @@
 // This file fetches game data from a published Google Sheet and converts it to the game format
 
 // IMPORTANT: Set your Google Sheet ID and Sheet names here
-const GOOGLE_SHEET_ID = '1lXQaaeSVjT9Ex4QQjNosnMnkfAMWqMy2aRy4l3aVs6Q' ; // Replace with your Google Sheet ID
+const GOOGLE_SHEET_ID = '1lXQaaeSVjT9Ex4QQjNosnMnkfAMWqMy2aRy4l3aVs6Q'; // Replace with your Google Sheet ID
 const USE_GOOGLE_SHEETS = true; // Set to true to use Google Sheets instead of local data
 
-// Extract data from Google Sheet CSV export URL
+// Extract data from Google Sheet using JSON API (more reliable than CSV)
 async function loadFromGoogleSheets() {
     if (!USE_GOOGLE_SHEETS || !GOOGLE_SHEET_ID) {
         console.log('Using local game data');
@@ -13,10 +13,12 @@ async function loadFromGoogleSheets() {
     }
 
     try {
-        // Construct the CSV export URL for each sheet
-        const classesUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Classes`;
-        const lootUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Loot`;
-        const minionsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Minions`;
+        // Use JSON export which handles commas and special characters better
+        const classesUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Classes`;
+        const lootUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Loot`;
+        const minionsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Minions`;
+
+        console.log('Fetching game data from Google Sheets...');
 
         // Fetch all sheets
         const [classesData, lootData, minionsData] = await Promise.all([
@@ -26,50 +28,64 @@ async function loadFromGoogleSheets() {
         ]);
 
         // Parse and convert to game format
-        parseClassesFromCSV(classesData);
-        parseLootFromCSV(lootData);
-        parseMinionsFromCSV(minionsData);
+        parseClassesFromJSON(classesData);
+        parseLootFromJSON(lootData);
+        parseMinionsFromJSON(minionsData);
 
-        console.log('✓ Loaded game data from Google Sheets');
+        console.log('✓ Successfully loaded game data from Google Sheets');
         return true;
     } catch (error) {
-        console.error('Failed to load from Google Sheets:', error);
-        console.log('Falling back to local data');
+        console.error('❌ Failed to load from Google Sheets:', error);
+        console.log('Falling back to local game data');
         return false;
     }
 }
 
-// Helper function to parse CSV
-function parseCSV(csv) {
-    const lines = csv.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const rows = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const obj = {};
-        headers.forEach((header, i) => {
-            obj[header] = values[i];
+// Helper function to parse Google Sheets JSON response
+function parseJSON(jsonString) {
+    try {
+        // Remove the protective prefix/suffix that Google Sheets adds
+        const jsonData = jsonString.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+        const data = JSON.parse(jsonData);
+        
+        if (!data.table || !data.table.rows) {
+            return [];
+        }
+
+        const cols = data.table.cols;
+        const rows = data.table.rows;
+
+        // Convert to objects
+        return rows.map(row => {
+            const obj = {};
+            cols.forEach((col, i) => {
+                const value = row.c[i]?.v || '';
+                obj[col.label] = value;
+            });
+            return obj;
         });
-        return obj;
-    });
-    return rows;
+    } catch (e) {
+        console.error('Error parsing JSON response:', e);
+        return [];
+    }
 }
 
 // Parse Classes sheet
-function parseClassesFromCSV(csv) {
-    const rows = parseCSV(csv);
+function parseClassesFromJSON(jsonString) {
+    const rows = parseJSON(jsonString);
     const newClasses = {};
 
     rows.forEach(row => {
         if (!row.className) return;
 
-        const className = row.className.toUpperCase();
+        const className = String(row.className).toUpperCase().trim();
         if (!newClasses[className]) {
             newClasses[className] = {
-                name: row.name || className,
-                icon: row.icon || '⚔️',
+                name: String(row.name || className),
+                icon: String(row.icon || '⚔️'),
                 baseRange: parseInt(row.baseRange) || 1,
                 vitality: parseInt(row.vitality) || 2,
-                flavor: row.flavor || '',
+                flavor: String(row.flavor || ''),
                 deck: []
             };
         }
@@ -79,13 +95,13 @@ function parseClassesFromCSV(csv) {
             const cardCount = parseInt(row.cardCount) || 1;
             for (let i = 0; i < cardCount; i++) {
                 const card = {
-                    name: row.cardName,
-                    type: row.cardType || 'attack',
-                    desc: row.cardDesc || '',
-                    damage: row.cardDamage ? parseInt(row.cardDamage) : 0,
-                    fatigue: row.cardFatigue ? parseInt(row.cardFatigue) : 0,
-                    ap: row.cardAP ? parseInt(row.cardAP) : 0,
-                    count: row.cardDrawCount ? parseInt(row.cardDrawCount) : 0
+                    name: String(row.cardName),
+                    type: String(row.cardType || 'attack'),
+                    desc: String(row.cardDesc || ''),
+                    damage: parseInt(row.cardDamage) || 0,
+                    fatigue: parseInt(row.cardFatigue) || 0,
+                    ap: parseInt(row.cardAP) || 0,
+                    count: parseInt(row.cardDrawCount) || 0
                 };
                 newClasses[className].deck.push(card);
             }
@@ -94,30 +110,31 @@ function parseClassesFromCSV(csv) {
 
     // Update global CLASSES
     Object.assign(CLASSES, newClasses);
+    console.log('  ✓ Classes loaded:', Object.keys(newClasses).length, 'classes');
 }
 
 // Parse Loot sheet
-function parseLootFromCSV(csv) {
-    const rows = parseCSV(csv);
+function parseLootFromJSON(jsonString) {
+    const rows = parseJSON(jsonString);
     const newLoot = [];
 
     rows.forEach(row => {
         if (!row.name) return;
 
         const loot = {
-            name: row.name,
+            name: String(row.name),
             type: 'loot',
-            icon: row.icon || '📦',
-            equipLabel: row.equipLabel || 'Equip',
-            equipDesc: row.equipDesc || '',
-            useLabel: row.useLabel || 'Use',
-            useDesc: row.useDesc || '',
-            bonusDamage: row.bonusDamage ? parseInt(row.bonusDamage) : 0,
-            bonusRange: row.bonusRange ? parseInt(row.bonusRange) : 0,
-            burstDamage: row.burstDamage ? parseInt(row.burstDamage) : 0,
-            burstRange: row.burstRange ? parseInt(row.burstRange) : 0,
-            isHeal: row.isHeal === 'true' || row.isHeal === 'TRUE',
-            desc: row.desc || ''
+            icon: String(row.icon || '📦'),
+            equipLabel: String(row.equipLabel || 'Equip'),
+            equipDesc: String(row.equipDesc || ''),
+            useLabel: String(row.useLabel || 'Use'),
+            useDesc: String(row.useDesc || ''),
+            bonusDamage: parseInt(row.bonusDamage) || 0,
+            bonusRange: parseInt(row.bonusRange) || 0,
+            burstDamage: parseInt(row.burstDamage) || 0,
+            burstRange: parseInt(row.burstRange) || 0,
+            isHeal: String(row.isHeal).toLowerCase() === 'true',
+            desc: String(row.desc || '')
         };
         newLoot.push(loot);
     });
@@ -125,21 +142,22 @@ function parseLootFromCSV(csv) {
     // Update global LOOT_POOL
     LOOT_POOL.length = 0;
     LOOT_POOL.push(...newLoot);
+    console.log('  ✓ Loot items loaded:', newLoot.length, 'items');
 }
 
 // Parse Minions sheet
-function parseMinionsFromCSV(csv) {
-    const rows = parseCSV(csv);
+function parseMinionsFromJSON(jsonString) {
+    const rows = parseJSON(jsonString);
     const newMinions = [];
 
     rows.forEach(row => {
         if (!row.name) return;
 
         const minion = {
-            name: row.name,
+            name: String(row.name),
             hp: parseInt(row.hp) || 5,
             atk: parseInt(row.atk) || 1,
-            icon: row.icon || '👹'
+            icon: String(row.icon || '👹')
         };
         newMinions.push(minion);
     });
@@ -147,21 +165,20 @@ function parseMinionsFromCSV(csv) {
     // Update global MINION_TYPES
     MINION_TYPES.length = 0;
     MINION_TYPES.push(...newMinions);
+    console.log('  ✓ Minion types loaded:', newMinions.length, 'minions');
 }
 
 // Initialize: Try loading from Google Sheets first, fall back to local data
 async function initializeGameData() {
+    console.log('Initializing game data...');
     const loaded = await loadFromGoogleSheets();
     if (!loaded && !USE_GOOGLE_SHEETS) {
         console.log('Using hardcoded local game data');
     }
     // Dispatch event when data is ready
     window.dispatchEvent(new Event('gameDataReady'));
+    console.log('Game data ready!');
 }
 
-// Call this when the page loads
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeGameData);
-} else {
-    initializeGameData();
-}
+// Call this immediately (don't wait for DOM ready)
+initializeGameData();
